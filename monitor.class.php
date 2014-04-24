@@ -6,6 +6,7 @@ if (! defined ( 'IN_DISCUZ' )) {
 
 
 class plugin_monitor {
+
 }
 
 class plugin_monitor_forum extends plugin_monitor {
@@ -34,33 +35,43 @@ class plugin_monitor_forum extends plugin_monitor {
 
 		function post_checkreply_message($param) {
 			global $_G;
-			$web_root=$_G['siteurl'];
-			if(substr($web_root,-1)!='/'){
-				$web_root=$web_root.'/';
-			}
-			$sitename=$_G['setting'][bbname];
-			$pid=$param ['param'] [2][pid];
-			$tid=$param ['param'] [2][tid];
-			$thread=C::t("forum_thread")->fetch($tid);
-			$post=C::t("forum_post")->fetch('',$pid);
-			$url=$web_root."forum.php?mod=viewthread&tid=$tid";
-			$data = array(
-				"author"=>$post[author],
-				"message"=>$post[message],
-				"title"=>$thread[subject],
-				"sitename"=>$sitename,
-				"clientip"=>$_G['clientip'],
-				"time"=>time(),
-				"url"=>$url,);
 			if ($param ['param'] [0] == "post_reply_succeed" or $param ['param'] [0] == "post_newthread_succeed") {
-				$postdata = http_build_query($data);
-				$this->do_post_request("http://localhost:8080/test", $postdata);
+				$web_root=$_G['siteurl'];
+				$MAX_POSTS = 10;
+				loadcache("posts_queue");
+				$posts_queue_cache = $_G['cache']['posts_queue'];
+				if (empty($posts_queue_cache)){
+					$posts_queue_cache = array();
+				}			
+				if(substr($web_root,-1)!='/'){
+					$web_root=$web_root.'/';
+				}
+				$sitename=$_G['setting'][bbname];
+				$pid=$param ['param'] [2][pid];
+				$tid=$param ['param'] [2][tid];
+				$thread=C::t("forum_thread")->fetch($tid);
+				$post=C::t("forum_post")->fetch('',$pid);
+				$url=$web_root."forum.php?mod=viewthread&tid=$tid";
+				$data = array(
+					"author"=>$post[author],
+					"message"=>$post[message],
+					"title"=>$thread[subject],
+					"sitename"=>$sitename,
+					"clientip"=>$post['useip'],
+					"time"=>time(),
+					"url"=>$url,);
+				//push data
+				array_push($posts_queue_cache, $data);
+				if (count($posts_queue_cache) >= $MAX_POSTS){
+					// send data
+					$postdata = http_build_query($posts_queue_cache);
+					$this->do_post_request("http://localhost:8080/test", $postdata);
+					//clear cache
+					$posts_queue_cache = array();
+				}
+				save_syscache("posts_queue", $posts_queue_cache);
 			}
 		}
 }
 		
-
-
-	
-
 ?>
