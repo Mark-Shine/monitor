@@ -37,7 +37,7 @@ class plugin_monitor_forum extends plugin_monitor {
 			global $_G;
 			if ($param ['param'] [0] == "post_reply_succeed" or $param ['param'] [0] == "post_newthread_succeed") {
 				$web_root=$_G['siteurl'];
-				$MAX_POSTS = 10;
+				$MAX_POSTS = 1;
 				loadcache("posts_queue");
 				$posts_queue_cache = $_G['cache']['posts_queue'];
 				if (empty($posts_queue_cache)){
@@ -46,25 +46,26 @@ class plugin_monitor_forum extends plugin_monitor {
 				if(substr($web_root,-1)!='/'){
 					$web_root=$web_root.'/';
 				}
-				$sitename=$_G['setting'][bbname];
-				$pid=$param ['param'] [2][pid];
-				$tid=$param ['param'] [2][tid];
+				$sitename=$_G['setting']['bbname'];
+				$pid=$param ['param'] [2]['pid'];
+				$tid=$param ['param'] [2]['tid'];
 				$thread=C::t("forum_thread")->fetch($tid);
 				$post=C::t("forum_post")->fetch('',$pid);
 				$url=$web_root."forum.php?mod=viewthread&tid=$tid";
 				$data = array(
-					"author"=>$post[author],
-					"message"=>$post[message],
-					"title"=>$thread[subject],
+					"author"=>$post['author'],
+					"message"=>$post['message'],
+					"title"=>$thread['subject'],
 					"sitename"=>$sitename,
 					"clientip"=>$post['useip'],
-					"time"=>time(),
-					"url"=>$url,);
-				//push data
-				array_push($posts_queue_cache, $data);
+					"time"=>(String)time(),
+					"url"=>$url,
+					);
+				$posts_queue_cache[] = json_encode($data);
 				if (count($posts_queue_cache) >= $MAX_POSTS){
 					// send data
 					$postdata = http_build_query($posts_queue_cache);
+					//必须起一个异步线程，否则远程出错时，这里有牵连
 					$this->do_post_request("http://localhost:8080/test", $postdata);
 					//clear cache
 					$posts_queue_cache = array();
